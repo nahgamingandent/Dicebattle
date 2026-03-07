@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dice Battle</title>
+
+<style>
+
+body{
+margin:0;
+background:black;
+color:white;
+font-family:Arial;
+text-align:center;
+}
+
+.screen{
+display:none;
+height:100vh;
+justify-content:center;
+align-items:center;
+flex-direction:column;
+}
+
+.tabs{
+display:flex;
+flex-direction:column;
+gap:8px;
+width:220px;
+}
+
+button{
+padding:12px;
+border:none;
+border-radius:8px;
+background:#666;
+color:white;
+font-size:16px;
+}
+
+button:active{
+transform:scale(0.95);
+}
+
+.health{
+width:220px;
+height:20px;
+background:#333;
+border-radius:10px;
+overflow:hidden;
+margin:6px auto;
+}
+
+.bar{
+height:100%;
+background:lime;
+width:100%;
+}
+
+.levels{
+display:flex;
+flex-wrap:wrap;
+justify-content:center;
+max-width:260px;
+}
+
+.levelBtn{
+min-width:40px;
+margin:3px;
+}
+
+/* 3D DICE */
+
+#diceWrap{
+perspective:700px;
+width:120px;
+height:120px;
+margin:20px auto;
+display:flex;
+justify-content:center;
+align-items:center;
+}
+
+.dice3d{
+position:relative;
+width:70px;
+height:70px;
+transform-style:preserve-3d;
+transition:transform 0.8s ease;
+}
+
+.face{
+position:absolute;
+width:70px;
+height:70px;
+background:white;
+color:black;
+border:3px solid #222;
+border-radius:12px;
+display:flex;
+justify-content:center;
+align-items:center;
+font-size:30px;
+font-weight:bold;
+}
+
+.front{ transform:rotateY(0deg) translateZ(35px); }
+.back{ transform:rotateY(180deg) translateZ(35px); }
+.right{ transform:rotateY(90deg) translateZ(35px); }
+.left{ transform:rotateY(-90deg) translateZ(35px); }
+.top{ transform:rotateX(90deg) translateZ(35px); }
+.bottom{ transform:rotateX(-90deg) translateZ(35px); }
+
+.show1{ transform:rotateX(0deg) rotateY(0deg); }
+.show2{ transform:rotateX(90deg) rotateY(0deg); }
+.show3{ transform:rotateX(0deg) rotateY(-90deg); }
+.show4{ transform:rotateX(0deg) rotateY(90deg); }
+.show5{ transform:rotateX(-90deg) rotateY(0deg); }
+.show6{ transform:rotateX(0deg) rotateY(180deg); }
+
+.rolling{
+animation:diceSpin .7s linear;
+}
+
+@keyframes diceSpin{
+0%{ transform:rotateX(0) rotateY(0) }
+25%{ transform:rotateX(180deg) rotateY(180deg) }
+50%{ transform:rotateX(360deg) rotateY(360deg) }
+75%{ transform:rotateX(540deg) rotateY(540deg) }
+100%{ transform:rotateX(720deg) rotateY(720deg) }
+}
+
+</style>
+</head>
+
+<body>
+
+<div id="menu" class="screen" style="display:flex">
+
+<h2>GG Studios</h2>
+<h1>Dice Battle</h1>
+
+<p id="coins">Coins: 0</p>
+
+<div class="tabs">
+<button onclick="showTab('play')">▶ Play</button>
+<button onclick="showTab('grind')">💰 Grind</button>
+<button onclick="showTab('shop')">🛒 Shop</button>
+<button onclick="showTab('settings')">⚙ Settings</button>
+</div>
+
+<div id="playTab">
+
+<h3>Levels</h3>
+<div id="levels" class="levels"></div>
+
+<p>Selected Level: <span id="selectedLevel">1</span></p>
+
+<button onclick="startGame()">Start</button>
+
+</div>
+
+<div id="grindTab" style="display:none">
+
+<h3>Grind Mode</h3>
+<button onclick="startGrind()">Start Grind</button>
+
+</div>
+
+<div id="shopTab" style="display:none">
+
+<h3>Shop</h3>
+
+<p>Sword (+3 dmg)</p>
+<button onclick="buySword()">Buy 50</button>
+
+<p>Armor (-2 dmg)</p>
+<button onclick="buyArmor()">Buy 60</button>
+
+<p>Equipped: <span id="equip">None</span></p>
+
+</div>
+
+<div id="settingsTab" style="display:none">
+
+<h3>Settings</h3>
+
+<button onclick="setAI('easy')">Easy AI</button>
+<button onclick="setAI('hard')">Hard AI</button>
+
+<p id="aiText">AI: Easy</p>
+
+<button onclick="resetSave()">Reset Save</button>
+
+</div>
+
+</div>
+
+<!-- GAME -->
+
+<div id="game" class="screen">
+
+<button onclick="backMenu()">Menu</button>
+
+<h2 id="levelText"></h2>
+
+<h3>Player</h3>
+<div class="health"><div id="p1bar" class="bar"></div></div>
+<p id="p1hp">100</p>
+
+<h3>Enemy</h3>
+<div class="health"><div id="p2bar" class="bar"></div></div>
+<p id="p2hp">100</p>
+
+<div id="diceWrap">
+<div id="dice3d" class="dice3d show1">
+
+<div class="face front">1</div>
+<div class="face back">6</div>
+<div class="face right">3</div>
+<div class="face left">4</div>
+<div class="face top">5</div>
+<div class="face bottom">2</div>
+
+</div>
+</div>
+
+<button id="rollBtn" onclick="rollDice()">Roll Dice</button>
+
+<p id="battleMessage"></p>
+
+</div>
+
+<script>
+
+let level = 1
+let unlocked = 1
+let coins = 100
+let ai = "easy"
+let sword = false
+let armor = false
+
+let p1 = 100
+let p2 = 100
+let maxP2 = 100
+
+let grind = false
+let playing = false
+
+function $(id){return document.getElementById(id)}
+
+function showTab(name){
+
+$("playTab").style.display="none"
+$("grindTab").style.display="none"
+$("shopTab").style.display="none"
+$("settingsTab").style.display="none"
+
+$(name+"Tab").style.display="block"
+
+}
+
+function updateUI(){
+
+$("coins").innerText="Coins: "+coins
+$("selectedLevel").innerText=level
+$("equip").innerText=sword?"Sword":armor?"Armor":"None"
+$("aiText").innerText="AI: "+ai
+
+}
+
+function buildLevels(){
+
+let box=$("levels")
+box.innerHTML=""
+
+for(let i=1;i<=10;i++){
+
+let b=document.createElement("button")
+b.className="levelBtn"
+b.innerText=i
+
+if(i>unlocked){
+b.disabled=true
+b.style.opacity="0.4"
+}
+
+b.onclick=function(){
+level=i
+updateUI()
+}
+
+box.appendChild(b)
+
+}
+
+}
+
+function startGame(){
+
+grind=false
+playing=true
+
+$("menu").style.display="none"
+$("game").style.display="flex"
+
+p1=100
+
+if(level==10){
+p2=180
+maxP2=180
+}else{
+p2=100
+maxP2=100
+}
+
+$("levelText").innerText=(level==10)?"Boss Battle":"Level "+level
+
+updateBattle()
+
+}
+
+function startGrind(){
+
+grind=true
+playing=true
+
+$("menu").style.display="none"
+$("game").style.display="flex"
+
+p1=100
+p2=100
+maxP2=100
+
+$("levelText").innerText="Grind Mode"
+
+updateBattle()
+
+}
+
+function updateBattle(){
+
+if(p1<0)p1=0
+if(p2<0)p2=0
+
+$("p1hp").innerText=p1+" HP"
+$("p2hp").innerText=p2+" HP"
+
+$("p1bar").style.width=p1+"%"
+$("p2bar").style.width=(p2/maxP2*100)+"%"
+
+}
+
+function rollDice(){
+
+if(!playing) return
+
+$("rollBtn").disabled=true
+
+let dice=$("dice3d")
+dice.className="dice3d rolling"
+
+let roll=Math.floor(Math.random()*6)+1
+let dmg=roll
+
+if(sword) dmg+=3
+
+setTimeout(function(){
+
+dice.className="dice3d show"+roll
+
+p2-=dmg
+
+$("battleMessage").innerText="You rolled "+roll+" and dealt "+dmg+" damage!"
+
+updateBattle()
+
+if(p2<=0){
+victory()
+return
+}
+
+setTimeout(enemyTurn,600)
+
+},700)
+
+}
+
+function enemyTurn(){
+
+let roll=Math.floor(Math.random()*6)+1
+let dmg=roll
+
+if(ai=="hard") dmg+=2
+if(armor) dmg-=2
+if(dmg<1)dmg=1
+
+p1-=dmg
+
+$("battleMessage").innerText+=" Enemy dealt "+dmg+" damage!"
+
+updateBattle()
+
+if(p1<=0){
+lose()
+return
+}
+
+$("rollBtn").disabled=false
+
+}
+
+function victory(){
+
+playing=false
+
+let reward=(level==10)?100:50
+if(grind) reward=50
+
+coins+=reward
+
+$("battleMessage").innerText="Victory +"+reward
+
+if(level>=unlocked && unlocked<10 && !grind){
+unlocked=level+1
+}
+
+updateUI()
+buildLevels()
+
+setTimeout(backMenu,1000)
+
+}
+
+function lose(){
+
+playing=false
+
+$("battleMessage").innerText="You lost"
+
+setTimeout(backMenu,1000)
+
+}
+
+function buySword(){
+
+if(coins<50)return
+
+coins-=50
+sword=true
+armor=false
+
+updateUI()
+
+}
+
+function buyArmor(){
+
+if(coins<60)return
+
+coins-=60
+armor=true
+sword=false
+
+updateUI()
+
+}
+
+function setAI(mode){
+
+ai=mode
+updateUI()
+
+}
+
+function backMenu(){
+
+$("game").style.display="none"
+$("menu").style.display="flex"
+
+updateUI()
+
+}
+
+function resetSave(){
+
+localStorage.clear()
+
+coins=100
+unlocked=1
+level=1
+
+updateUI()
+buildLevels()
+
+}
+
+buildLevels()
+updateUI()
+showTab("play")
+
+</script>
+
+</body>
+</html>
