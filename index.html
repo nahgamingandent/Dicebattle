@@ -306,13 +306,19 @@ $("game").style.display="flex"
 
 p1=100
 
-if(level==10){
-p2=180
-maxP2=180
-}else{
-p2=100
-maxP2=100
-}
+// enemy HP scaling
+if(level==1){ maxP2=100 }
+if(level==2){ maxP2=120 }
+if(level==3){ maxP2=140 }
+if(level==4){ maxP2=160 }
+if(level==5){ maxP2=200 }
+if(level==6){ maxP2=250 }
+if(level==7){ maxP2=300 }
+if(level==8){ maxP2=350 }
+if(level==9){ maxP2=400 }
+if(level==10){ maxP2=1000 }
+
+p2=maxP2
 
 $("levelText").innerText=(level==10)?"Boss Battle":"Level "+level
 
